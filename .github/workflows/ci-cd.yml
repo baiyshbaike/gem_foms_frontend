@@ -100,8 +100,37 @@ jobs:
           DEPLOY_HOST: ${{ secrets.PRODUCTION_SSH_HOST }}
           DEPLOY_USER: ${{ secrets.PRODUCTION_SSH_USER }}
         run: |
-          ssh -o BatchMode=yes -o ConnectTimeout=10 "$DEPLOY_USER@$DEPLOY_HOST" \
-            'test -w /var/www/dialysis && test -d /var/www/dialysis/releases && command -v tar >/dev/null'
+          ssh -o BatchMode=yes -o ConnectTimeout=10 "$DEPLOY_USER@$DEPLOY_HOST" 'bash -s' <<'REMOTE'
+            set -Eeuo pipefail
+
+            deploy_root=/var/www/dialysis
+            failures=0
+
+            if [[ ! -d "$deploy_root" ]]; then
+              echo "ERROR: $deploy_root does not exist. Run the updated backend deploy/server-bootstrap.sh as root." >&2
+              failures=1
+            elif [[ ! -w "$deploy_root" ]]; then
+              echo "ERROR: the deployment user cannot write to $deploy_root." >&2
+              ls -ld "$deploy_root" >&2
+              failures=1
+            fi
+
+            if [[ ! -d "$deploy_root/releases" ]]; then
+              echo "ERROR: $deploy_root/releases does not exist. Run the updated backend deploy/server-bootstrap.sh as root." >&2
+              failures=1
+            elif [[ ! -w "$deploy_root/releases" ]]; then
+              echo "ERROR: the deployment user cannot write to $deploy_root/releases." >&2
+              ls -ld "$deploy_root/releases" >&2
+              failures=1
+            fi
+
+            if ! command -v tar > /dev/null; then
+              echo "ERROR: tar is not installed on the server." >&2
+              failures=1
+            fi
+
+            exit "$failures"
+          REMOTE
 
       - name: Publish frontend files
         env:

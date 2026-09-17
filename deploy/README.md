@@ -11,6 +11,14 @@ with the deploy user's ownership. Create a `production` GitHub Environment in
 this repository with `APP_DOMAIN` set to the bare HTTPS domain, such as
 `dialysis.example.com`. Set these Actions secrets in the frontend repository:
 
+If the backend bootstrap script has not yet been updated on an existing server,
+connect as the deployment user and run this one-time command instead:
+
+```bash
+sudo install -d -o "$(id -un)" -g "$(id -gn)" -m 0755 \
+  /var/www/dialysis /var/www/dialysis/releases
+```
+
 ```text
 PRODUCTION_SSH_HOST
 PRODUCTION_SSH_USER
