@@ -8,7 +8,7 @@ on:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
-  PROJECT_DIR: '/${{ secrets.SERVER_USER }}/${{ secrets.PROJECT_DIR }}'
+  PROJECT_DIR: /opt/foms-frontend
 
 jobs:
   test:
@@ -93,6 +93,7 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           source: docker-compose.yml
           target: '${{ env.PROJECT_DIR }}'
+          overwrite: true
 
       - name: Execute Remote Deployment
         uses: appleboy/ssh-action@v1.0.3
