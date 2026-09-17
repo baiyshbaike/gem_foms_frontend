@@ -12,7 +12,7 @@ ENV VITE_SERVER_API_PREFIX=$VITE_SERVER_API_PREFIX
 ARG VITE_WS_URL
 ENV VITE_WS_URL=$VITE_WS_URL
 
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml install-hooks.cjs ./
 RUN pnpm install --frozen-lockfile --config.auto-install-peers=false
 
 COPY . .
