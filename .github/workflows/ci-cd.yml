@@ -29,7 +29,6 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm lint
       - run: pnpm test --run --pool=threads --maxWorkers=1
-      - run: pnpm build
       - run: bash tests/deploy-smoke.sh
 
   deploy:
