@@ -81,6 +81,9 @@ jobs:
     name: Deploy to Production
     needs: build
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -122,7 +125,7 @@ jobs:
             docker compose up -d
 
             # Verification
-            docker ps | grep foms-frontend
+            docker ps --format '{{.Names}}' | grep -Fx gem-frontend
 
             # Cleanup
             docker image prune -af
