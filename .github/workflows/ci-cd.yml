@@ -50,6 +50,17 @@ jobs:
           [[ $APP_DOMAIN =~ ^[A-Za-z0-9][A-Za-z0-9.-]*[A-Za-z0-9]$ && $APP_DOMAIN == *.* ]] \
             || { echo "APP_DOMAIN must be a bare domain name." >&2; exit 1; }
 
+      - name: Validate deployment secrets
+        env:
+          DEPLOY_HOST: ${{ secrets.PRODUCTION_SSH_HOST }}
+          DEPLOY_USER: ${{ secrets.PRODUCTION_SSH_USER }}
+          SSH_PRIVATE_KEY: ${{ secrets.PRODUCTION_SSH_PRIVATE_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.PRODUCTION_SSH_KNOWN_HOSTS }}
+        run: |
+          for name in DEPLOY_HOST DEPLOY_USER SSH_PRIVATE_KEY SSH_KNOWN_HOSTS; do
+            [[ -n ${!name} ]] || { echo "$name is missing from the frontend repository or its production environment." >&2; exit 1; }
+          done
+
       - uses: actions/setup-node@v7
         with:
           node-version: 22
