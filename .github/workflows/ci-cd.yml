@@ -1,0 +1,105 @@
+name: ci-cd
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  frontend:
+    runs-on: ubuntu-latest
+    env:
+      VITE_SERVER_API_URL: https://example.test
+      VITE_SERVER_API_PREFIX: /api/v1
+      VITE_SERVER_API_TIMEOUT: 15000
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - uses: pnpm/action-setup@v6
+        with:
+          cache: true
+          cache_dependency_path: pnpm-lock.yaml
+          package_json_file: package.json
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm test --run --pool=threads --maxWorkers=1
+      - run: pnpm build
+      - run: bash tests/deploy-smoke.sh
+
+  deploy:
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    needs: frontend
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://${{ vars.APP_DOMAIN }}
+    concurrency:
+      group: production-web-deploy
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v6
+      - name: Validate production domain
+        env:
+          APP_DOMAIN: ${{ vars.APP_DOMAIN }}
+        run: |
+          [[ $APP_DOMAIN =~ ^[A-Za-z0-9][A-Za-z0-9.-]*[A-Za-z0-9]$ && $APP_DOMAIN == *.* ]] \
+            || { echo "APP_DOMAIN must be a bare domain name." >&2; exit 1; }
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - uses: pnpm/action-setup@v6
+        with:
+          cache: true
+          cache_dependency_path: pnpm-lock.yaml
+          package_json_file: package.json
+      - run: pnpm install --frozen-lockfile
+      - name: Build production frontend
+        env:
+          VITE_SERVER_API_URL: https://${{ vars.APP_DOMAIN }}
+          VITE_SERVER_API_PREFIX: /api/v1
+          VITE_SERVER_API_TIMEOUT: 15000
+        run: pnpm build
+
+      - name: Prepare release archive
+        id: release
+        run: |
+          release_id="sha-${GITHUB_SHA}-run-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          echo "id=$release_id" >> "$GITHUB_OUTPUT"
+          mkdir -p .deploy
+          tar -C dist -czf .deploy/site.tar.gz .
+
+      - name: Configure SSH
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.PRODUCTION_SSH_PRIVATE_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.PRODUCTION_SSH_KNOWN_HOSTS }}
+        run: |
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/id_ed25519 ~/.ssh/known_hosts
+
+      - name: Check server access
+        env:
+          DEPLOY_HOST: ${{ secrets.PRODUCTION_SSH_HOST }}
+          DEPLOY_USER: ${{ secrets.PRODUCTION_SSH_USER }}
+        run: |
+          ssh -o BatchMode=yes -o ConnectTimeout=10 "$DEPLOY_USER@$DEPLOY_HOST" \
+            'test -w /var/www/dialysis && test -d /var/www/dialysis/releases && command -v tar >/dev/null'
+
+      - name: Publish frontend files
+        env:
+          DEPLOY_HOST: ${{ secrets.PRODUCTION_SSH_HOST }}
+          DEPLOY_USER: ${{ secrets.PRODUCTION_SSH_USER }}
+          RELEASE_ID: ${{ steps.release.outputs.id }}
+        run: |
+          scp deploy/deploy.sh "$DEPLOY_USER@$DEPLOY_HOST:/var/www/dialysis/deploy.sh"
+          scp .deploy/site.tar.gz "$DEPLOY_USER@$DEPLOY_HOST:/var/www/dialysis/.upload-$RELEASE_ID.tar.gz"
+          ssh "$DEPLOY_USER@$DEPLOY_HOST" \
+            "chmod 700 /var/www/dialysis/deploy.sh && /var/www/dialysis/deploy.sh '$RELEASE_ID'"
