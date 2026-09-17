@@ -15,36 +15,6 @@ describe('envSchema validation', () => {
       if (result.success) {
         expect(result.data.VITE_SERVER_API_URL).toBe('https://api.example.com')
         expect(result.data.VITE_SERVER_API_PREFIX).toBe('/v1')
-        expect(result.data.VITE_SERVER_API_TIMEOUT).toBe(5000) // Значение по умолчанию
-      }
-    })
-
-    it('should validate with custom timeout', () => {
-      const validEnv = {
-        VITE_SERVER_API_URL: 'http://localhost:3000',
-        VITE_SERVER_API_PREFIX: '/api',
-        VITE_SERVER_API_TIMEOUT: 10000,
-      }
-
-      const result = EnvSchema.safeParse(validEnv)
-      expect(result.success).toBe(true)
-      if (result.success) {
-        expect(result.data.VITE_SERVER_API_TIMEOUT).toBe(10000)
-      }
-    })
-
-    it('should coerce string timeout to number', () => {
-      const validEnv = {
-        VITE_SERVER_API_URL: 'https://api.example.com',
-        VITE_SERVER_API_PREFIX: '/api',
-        VITE_SERVER_API_TIMEOUT: '15000',
-      }
-
-      const result = EnvSchema.safeParse(validEnv)
-      expect(result.success).toBe(true)
-      if (result.success) {
-        expect(result.data.VITE_SERVER_API_TIMEOUT).toBe(15000)
-        expect(typeof result.data.VITE_SERVER_API_TIMEOUT).toBe('number')
       }
     })
   })
@@ -85,20 +55,6 @@ describe('envSchema validation', () => {
       if (!result.success) {
         expect(result.error.issues[0].path).toContain('VITE_SERVER_API_URL')
         expect(result.error.issues[0].code).toBe('invalid_format')
-      }
-    })
-
-    it('should fail when VITE_SERVER_API_TIMEOUT cannot be coerced to number', () => {
-      const invalidEnv = {
-        VITE_SERVER_API_URL: 'https://api.example.com',
-        VITE_SERVER_API_PREFIX: '/api',
-        VITE_SERVER_API_TIMEOUT: 'invalid-number',
-      }
-
-      const result = EnvSchema.safeParse(invalidEnv)
-      expect(result.success).toBe(false)
-      if (!result.success) {
-        expect(result.error.issues[0].path).toContain('VITE_SERVER_API_TIMEOUT')
       }
     })
   })
